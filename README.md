@@ -1,11 +1,177 @@
-<div align="center">
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+# EcoExplore: Multiplayer 🌲
 
-  <h1>Built with AI Studio</h2>
+这是一个多人在线协作探索与家园建设游戏的 Web 前端项目。
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+本项目支持 **Mock 模式**（纯前端演示）和 **真实后端模式**。
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+---
 
-</div>
+## 🏗 架构与后端对接指南
+
+为了启用真实的多人联机功能，需要开发一个后端服务。以下是前端 `RealServer.ts` 期望的通信协议和接口规范。
+
+### 1. 通信协议
+
+*   **协议**: WebSocket
+*   **默认地址**: `ws://localhost:8080/ws` (可在 `constants.ts` 中修改 `BACKEND_URL`)
+*   **数据格式**: JSON
+
+### 2. 客户端 -> 服务端 (Client Events)
+
+前端通过 WebSocket 发送如下 JSON 消息。后端需要监听这些 `type` 并处理相应的游戏逻辑。
+
+| 消息类型 (type) | 载荷参数 (payload) | 描述 | 后端逻辑建议 |
+| :--- | :--- | :--- | :--- |
+| `LOGIN` | `{}` | 玩家连接初始化 | 创建玩家 Session，初始化玩家数据，返回初始 `STATE_UPDATE`。 |
+| `ENTER_WORLD` | `{}` | 切换到世界探索模式 | 将 `mode` 设为 `WORLD`，将玩家加入空间索引/物理世界。 |
+| `RETURN_HOME` | `{}` | 切换回家园模式 | 将 `mode` 设为 `HOME`，从物理世界移除玩家实体（可选）。 |
+| `MOVE` | `delta: {x: number, y: number}` | 玩家移动请求 | 验证移动合法性（碰撞检测），更新玩家坐标。`delta` 为归一化向量或位移量。 |
+| `ATTACK` | `targetId: string` | 攻击目标 | 检查距离，计算伤害，扣除目标 HP。如果目标死亡，生成掉落物。 |
+| `LOOT` | `entityId: string` | 拾取掉落物 | 检查距离，将掉落物转化为物品加入玩家背包，移除掉落物实体。 |
+| `CHAT` | `text: string` | 发送聊天消息 | 广播消息给同地图/同区域的其他玩家。 |
+| `OPEN_CONTAINER` | `itemId: string` | 开启背包中的箱子 | 消耗箱子物品，随机生成资源奖励给玩家。 |
+| `PLANT` | `buildingId: string` | 在农田种植 | 校验种子数量，设置该建筑 `cropType` 和 `plantTime`。 |
+| `HARVEST` | `buildingId: string` | 收获农作物 | 校验成熟状态，重置建筑状态，增加作物资源，增加经验。 |
+| `RECOVER_HP` | `buildingId: string` | 在食堂进食 | 消耗作物资源，恢复玩家 HP。 |
+
+#### 消息示例
+
+**移动请求:**
+```json
+{
+  "type": "MOVE",
+  "delta": { "x": 1.0, "y": 0.0 }
+}
+```
+
+**攻击请求:**
+```json
+{
+  "type": "ATTACK",
+  "targetId": "entity-uuid-1234"
+}
+```
+
+---
+
+### 3. 服务端 -> 客户端 (Server Events)
+
+目前前端架构较为简单，期望后端在任何状态变更时（或以固定频率，如 20Hz）推送**完整的游戏状态**。
+
+#### 消息结构
+
+```json
+{
+  "type": "STATE_UPDATE",
+  "payload": { ...GameState Object... }
+}
+```
+
+#### Payload (GameState) 数据结构详情
+
+后端返回的 JSON 必须符合以下 Typescript 接口定义：
+
+```typescript
+interface GameState {
+  // 当前游戏模式
+  mode: 'LOBBY' | 'WORLD' | 'HOME';
+  
+  // 消息日志 (聊天/系统提示)
+  messages: string[];
+  
+  // 地图上的实体 (玩家, 怪物, 掉落物)
+  entities: {
+    id: string;
+    type: 'PLAYER' | 'OTHER_PLAYER' | 'MONSTER_SLIME' | 'MONSTER_BEAST' | 'LOOT_CONTAINER';
+    pos: { x: number, y: number };
+    hp: number;
+    maxHp: number;
+    name: string;
+  }[];
+  
+  // 静态装饰物 (树, 石头, 墙壁 - 仅 WORLD 模式需要发送，或者前端硬编码)
+  decorations: {
+    id: string;
+    type: 'TREE' | 'ROCK' | 'WATER' | 'WALL';
+    pos: { x: number, y: number };
+    scale: number;
+  }[];
+
+  // 当前玩家的详细状态
+  player: {
+    id: string;
+    name: string;
+    pos: { x: number, y: number };
+    hp: number;
+    maxHp: number;
+    inventory: { id: string, type: string, count: number }[];
+    maxInventory: number;
+    level: number;
+    exp: number;
+  };
+
+  // 家园数据
+  home: {
+    buildings: {
+      id: string;
+      type: 'FIELD' | 'WORKBENCH' | 'CONTAINER_OPENER' | 'CANTEEN';
+      pos: { x: number, y: number };
+      level: number;
+      cropType?: string; // 仅 FIELD 有效
+      isReady?: boolean; // 仅 FIELD 有效
+    }[];
+    resources: {
+      "RESOURCE_WOOD": number,
+      "RESOURCE_STONE": number,
+      "SEED_WHEAT": number,
+      "CROP_WHEAT": number
+      // ... 其他资源类型
+    };
+  };
+
+  // 临时弹窗通知 (前端展示后会自动淡出，后端只需发送一次)
+  popups: {
+    id: string;
+    text: string;
+    icon?: string;
+    timestamp: number;
+  }[];
+
+  // 伤害飘字 (前端展示后自动淡出)
+  floatingTexts: {
+    id: string;
+    x: number;
+    y: number;
+    text: string;
+    colorClass: string; // Tailwind CSS 类名 (如 "text-red-500")
+    timestamp: number;
+  }[];
+}
+```
+
+### 4. 开发建议
+
+1.  **心跳/Tick**: 后端应维护一个主循环（Tick Loop），建议频率为 20Hz (50ms)。
+2.  **状态同步**: 
+    *   为了简化开发，初期可以在每次 Tick 结束时广播完整的 `STATE_UPDATE` 给所有连接的客户端。
+    *   进阶优化可改为发送 Delta (增量更新)，但这需要修改前端 `RealServer.ts` 的处理逻辑。
+3.  **多玩家同步**: 
+    *   当玩家 A 移动时，更新后端内存中的坐标。
+    *   在下一次广播时，玩家 B 的 `entities` 列表中应包含玩家 A 的最新坐标 (类型为 `OTHER_PLAYER`)。
+4.  **持久化**: 建议将 `player` (背包/属性) 和 `home` (建筑/资源) 数据持久化到数据库。
+
+---
+
+## 🎨 前端运行指南
+
+1.  **安装依赖**:
+    项目使用 ES Modules 和 CDN 导入 React，无需复杂的 npm install 过程即可预览，但在开发环境下建议使用标准的 React 构建工具。
+
+2.  **切换模式**:
+    打开 `src/constants.ts`：
+    *   设置 `export const USE_MOCK_SERVER = true;` 使用纯前端 Mock 模式。
+    *   设置 `export const USE_MOCK_SERVER = false;` 连接真实后端。
+
+3.  **启动**:
+    直接打开 `index.html` 或使用 Live Server 预览。

@@ -1,0 +1,68 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>EcoExplore Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @keyframes fade-in-up {
+        0% { opacity: 0; transform: translateY(10px); }
+        100% { opacity: 1; transform: translateY(0); }
+      }
+      .animate-fade-in-up {
+        animation: fade-in-up 0.3s ease-out forwards;
+      }
+
+      @keyframes fade-out {
+        0% { opacity: 1; transform: translateY(0); }
+        70% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(-20px); }
+      }
+      
+      @keyframes float-up {
+        0% { opacity: 1; transform: translateY(0) scale(1); }
+        100% { opacity: 0; transform: translateY(-30px) scale(1.2); }
+      }
+      .animate-float-up {
+        animation: float-up 0.8s ease-out forwards;
+      }
+
+      /* Mobile Safe Area Utilities */
+      .pt-safe-top {
+        padding-top: max(20px, env(safe-area-inset-top));
+      }
+      .pb-safe-bottom {
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+      }
+      
+      /* Touch Handling */
+      .touch-none {
+          touch-action: none;
+      }
+      .touch-auto {
+          touch-action: auto;
+      }
+      
+      /* Disable selection generally for app-like feel */
+      body {
+        -webkit-user-select: none;
+        user-select: none;
+        background-color: #0f172a; /* Slate 900 matches app bg */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
