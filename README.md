@@ -7,6 +7,30 @@
 
 ---
 
+## 🚀 快速开始
+
+### 1. 运行项目
+
+由于本项目使用了 ES Modules (`import/export`)，浏览器**不允许**直接通过 `file://` 协议（即双击 HTML 文件）打开。
+
+**必须使用本地 HTTP 服务器运行。**
+
+推荐方式：
+*   **VS Code**: 安装 "Live Server" 插件，右键 `index.html` 选择 "Open with Live Server"。
+*   **Python**: 在项目根目录运行 `python -m http.server`，然后访问 `http://localhost:8000`。
+*   **Node.js**: 运行 `npx serve .`。
+
+### 2. 常见问题 (Troubleshooting)
+
+#### ⚠️ 控制台警告: `cdn.tailwindcss.com should not be used in production`
+**这是正常的。**
+为了简化项目结构（无需 npm install 和构建步骤），我们使用了 Tailwind CSS 的 CDN 版本。它会在控制台打印此警告，提示你在正式上线产品时应该使用 PostCSS 构建流程。在开发和原型演示阶段，请忽略此警告。
+
+#### ⚠️ 屏幕空白 / 模块加载失败
+请确保你使用了本地服务器（如上所述）。如果在控制台看到 `CORS` 错误，说明你是直接打开了文件，请改为使用 HTTP 服务器。
+
+---
+
 ## 🏗 架构与后端对接指南
 
 为了启用真实的多人联机功能，需要开发一个后端服务。以下是前端 `RealServer.ts` 期望的通信协议和接口规范。
