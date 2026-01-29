@@ -10,7 +10,7 @@ class RealServer implements GameService {
   constructor() {
     // Initial empty/loading state to prevent UI crashes before connection
     this.state = {
-      mode: GameMode.LOBBY,
+      mode: GameMode.AUTH, // Start at AUTH, waiting for user input
       messages: ['正在连接真实服务器...'],
       entities: [],
       decorations: [],
@@ -51,8 +51,8 @@ class RealServer implements GameService {
     
     this.socket.onopen = () => {
         console.log('Connected to backend');
-        this.send({ type: 'LOGIN' });
-        // Assume backend sends full state on login
+        this.state.messages = ['已连接服务器，请登录'];
+        this.broadcast();
     };
     
     this.socket.onmessage = (event) => {
@@ -90,6 +90,9 @@ class RealServer implements GameService {
 
   // --- Interface Implementation ---
   
+  login(username: string, password: string) { this.send({ type: 'LOGIN', payload: { username, password } }); }
+  register(username: string, password: string) { this.send({ type: 'REGISTER', payload: { username, password } }); }
+
   enterWorld() { this.send({ type: 'ENTER_WORLD' }); }
   returnHome() { this.send({ type: 'RETURN_HOME' }); }
   movePlayer(delta: Position) { this.send({ type: 'MOVE', delta }); }

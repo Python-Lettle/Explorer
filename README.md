@@ -20,71 +20,59 @@
 *   **Python**: 在项目根目录运行 `python -m http.server`，然后访问 `http://localhost:8000`。
 *   **Node.js**: 运行 `npx serve .`。
 
-### 2. 常见问题 (Troubleshooting)
+### 2. 切换模式
 
-#### ⚠️ 控制台警告: `cdn.tailwindcss.com should not be used in production`
-**这是正常的。**
-为了简化项目结构（无需 npm install 和构建步骤），我们使用了 Tailwind CSS 的 CDN 版本。它会在控制台打印此警告，提示你在正式上线产品时应该使用 PostCSS 构建流程。在开发和原型演示阶段，请忽略此警告。
-
-#### ⚠️ 屏幕空白 / 模块加载失败
-请确保你使用了本地服务器（如上所述）。如果在控制台看到 `CORS` 错误，说明你是直接打开了文件，请改为使用 HTTP 服务器。
+打开 `src/constants.ts`：
+*   设置 `export const USE_MOCK_SERVER = true;` 使用纯前端 Mock 模式（体验单机逻辑）。
+*   设置 `export const USE_MOCK_SERVER = false;` 连接真实后端（需要自己实现后端）。
 
 ---
 
-## 🏗 架构与后端对接指南
+## 🏗 后端接口开发指南
 
-为了启用真实的多人联机功能，需要开发一个后端服务。以下是前端 `RealServer.ts` 期望的通信协议和接口规范。
+为了启用真实的多人联机功能，你需要开发一个后端服务。以下是前端 `RealServer.ts` 和 `types.ts` 定义的完整通信协议。
 
-### 1. 通信协议
+### 1. 通信基础
 
 *   **协议**: WebSocket
-*   **默认地址**: `ws://localhost:8080/ws` (可在 `constants.ts` 中修改 `BACKEND_URL`)
+*   **默认地址**: `ws://localhost:8080/ws` (可在 `src/constants.ts` 中修改 `BACKEND_URL`)
 *   **数据格式**: JSON
 
-### 2. 客户端 -> 服务端 (Client Events)
+### 2. 上行指令 (Client -> Server)
 
-前端通过 WebSocket 发送如下 JSON 消息。后端需要监听这些 `type` 并处理相应的游戏逻辑。
+前端通过 WebSocket 发送如下 JSON 消息。`payload` 字段根据 `type` 的不同而变化。
 
-| 消息类型 (type) | 载荷参数 (payload) | 描述 | 后端逻辑建议 |
+#### 🔐 认证类
+| 消息类型 (`type`) | Payload 参数 | 描述 | 后端逻辑建议 |
 | :--- | :--- | :--- | :--- |
-| `LOGIN` | `{}` | 玩家连接初始化 | 创建玩家 Session，初始化玩家数据，返回初始 `STATE_UPDATE`。 |
-| `ENTER_WORLD` | `{}` | 切换到世界探索模式 | 将 `mode` 设为 `WORLD`，将玩家加入空间索引/物理世界。 |
-| `RETURN_HOME` | `{}` | 切换回家园模式 | 将 `mode` 设为 `HOME`，从物理世界移除玩家实体（可选）。 |
-| `MOVE` | `delta: {x: number, y: number}` | 玩家移动请求 | 验证移动合法性（碰撞检测），更新玩家坐标。`delta` 为归一化向量或位移量。 |
-| `ATTACK` | `targetId: string` | 攻击目标 | 检查距离，计算伤害，扣除目标 HP。如果目标死亡，生成掉落物。 |
-| `LOOT` | `entityId: string` | 拾取掉落物 | 检查距离，将掉落物转化为物品加入玩家背包，移除掉落物实体。 |
-| `CHAT` | `text: string` | 发送聊天消息 | 广播消息给同地图/同区域的其他玩家。 |
-| `OPEN_CONTAINER` | `itemId: string` | 开启背包中的箱子 | 消耗箱子物品，随机生成资源奖励给玩家。 |
-| `PLANT` | `buildingId: string` | 在农田种植 | 校验种子数量，设置该建筑 `cropType` 和 `plantTime`。 |
-| `HARVEST` | `buildingId: string` | 收获农作物 | 校验成熟状态，重置建筑状态，增加作物资源，增加经验。 |
-| `RECOVER_HP` | `buildingId: string` | 在食堂进食 | 消耗作物资源，恢复玩家 HP。 |
+| `REGISTER` | `{ username, password }` | 注册账号 | 检查用户名是否存在。若成功，创建用户并自动登录（进入 `LOBBY` 模式）。 |
+| `LOGIN` | `{ username, password }` | 登录账号 | 校验凭证。若成功，加载用户数据，发送包含 `mode: 'LOBBY'` 的状态更新。 |
 
-#### 消息示例
+#### 🌏 世界交互类
+| 消息类型 (`type`) | Payload 参数 | 描述 | 后端逻辑建议 |
+| :--- | :--- | :--- | :--- |
+| `ENTER_WORLD` | `{}` | 进入荒野 | 将玩家 `mode` 设为 `WORLD`。将玩家实体加入空间索引。返回周围环境数据。 |
+| `RETURN_HOME` | `{}` | 返回家园 | 将玩家 `mode` 设为 `HOME`。保存玩家位置，从地图中移除实体（可选）。 |
+| `MOVE` | `{ delta: {x, y} }` | 移动请求 | `delta` 是位移向量。验证移动合法性（速度/碰撞），更新坐标，广播给视野内玩家。 |
+| `ATTACK` | `{ targetId }` | 攻击实体 | 检查距离。计算伤害。扣除目标 HP。若目标死亡：<br>1. 若是怪物，计算经验/掉落。<br>2. 广播实体移除和掉落物生成。 |
+| `LOOT` | `{ entityId }` | 拾取掉落 | 检查距离。验证归属权。将掉落物转化为物品存入玩家 `inventory`。移除掉落物实体。 |
+| `CHAT` | `{ text }` | 发送聊天 | 过滤敏感词。将消息追加到 `messages` 队列，并广播给同房间/地图玩家。 |
 
-**移动请求:**
-```json
-{
-  "type": "MOVE",
-  "delta": { "x": 1.0, "y": 0.0 }
-}
-```
-
-**攻击请求:**
-```json
-{
-  "type": "ATTACK",
-  "targetId": "entity-uuid-1234"
-}
-```
+#### 🏡 家园建设类
+| 消息类型 (`type`) | Payload 参数 | 描述 | 后端逻辑建议 |
+| :--- | :--- | :--- | :--- |
+| `OPEN_CONTAINER` | `{ itemId }` | 开箱子 | 检查背包是否有该 ID 的箱子。移除箱子，随机生成资源（木/石/种），更新 `home.resources`。 |
+| `PLANT` | `{ buildingId }` | 种植作物 | 检查 `SEED_WHEAT` > 0。找到对应 `FIELD` 建筑，设置 `cropType='CROP_WHEAT'` 和 `plantTime=now`。 |
+| `HARVEST` | `{ buildingId }` | 收获作物 | 检查是否成熟 (Time > 5s)。重置建筑状态。增加 `CROP_WHEAT` 资源。增加玩家经验。 |
+| `RECOVER_HP` | `{ buildingId }` | 食堂进食 | 检查 `CROP_WHEAT` > 0。消耗资源，恢复玩家 HP (不超 MaxHP)。 |
 
 ---
 
-### 3. 服务端 -> 客户端 (Server Events)
+### 3. 下行同步 (Server -> Client)
 
-目前前端架构较为简单，期望后端在任何状态变更时（或以固定频率，如 20Hz）推送**完整的游戏状态**。
+后端需要向客户端推送游戏状态。目前前端采用**全量状态同步**（State Update）模式。
 
-#### 消息结构
-
+**消息结构:**
 ```json
 {
   "type": "STATE_UPDATE",
@@ -92,110 +80,121 @@
 }
 ```
 
-#### Payload (GameState) 数据结构详情
+#### Payload (`GameState`) 数据结构详情
 
-后端返回的 JSON 必须符合以下 Typescript 接口定义：
+后端返回的 JSON **必须**严格符合以下结构，否则前端可能报错或渲染异常。
 
 ```typescript
 interface GameState {
-  // 当前游戏模式
-  mode: 'LOBBY' | 'WORLD' | 'HOME';
-  
-  // 消息日志 (聊天/系统提示)
-  messages: string[];
-  
-  // 地图上的实体 (玩家, 怪物, 掉落物)
-  entities: {
+  // 1. 游戏模式控制
+  // AUTH: 显示登录/注册页
+  // LOBBY: 登录成功后的欢迎页
+  // WORLD: 顶视角的地图探索模式
+  // HOME: 家园管理界面
+  mode: 'AUTH' | 'LOBBY' | 'WORLD' | 'HOME';
+
+  // 2. 玩家自身状态 (高频更新)
+  player: {
+    id: string;          // 唯一标识
+    name: string;        // 显示名称
+    pos: { x: number, y: number }; // 坐标 (0-2000)
+    hp: number;
+    maxHp: number;
+    level: number;
+    exp: number;
+    maxInventory: number; // 背包格子数
+    inventory: Array<{    // 背包物品
+      id: string;
+      type: 'CONTAINER_COMMON' | 'CONTAINER_RARE'; // 目前主要存放箱子
+      count: number;
+    }>;
+  };
+
+  // 3. 场景实体 (仅在 mode='WORLD' 时需要填充)
+  // 包括：其他玩家、怪物、掉落物
+  entities: Array<{
     id: string;
     type: 'PLAYER' | 'OTHER_PLAYER' | 'MONSTER_SLIME' | 'MONSTER_BEAST' | 'LOOT_CONTAINER';
     pos: { x: number, y: number };
     hp: number;
     maxHp: number;
     name: string;
-  }[];
-  
-  // 静态装饰物 (树, 石头, 墙壁 - 仅 WORLD 模式需要发送，或者前端硬编码)
-  decorations: {
+  }>;
+
+  // 4. 静态装饰物 (仅在 mode='WORLD' 时需要填充)
+  // 树木、石头、墙壁等碰撞体积
+  decorations: Array<{
     id: string;
     type: 'TREE' | 'ROCK' | 'WATER' | 'WALL';
     pos: { x: number, y: number };
     scale: number;
-  }[];
+  }>;
 
-  // 当前玩家的详细状态
-  player: {
-    id: string;
-    name: string;
-    pos: { x: number, y: number };
-    hp: number;
-    maxHp: number;
-    inventory: { id: string, type: string, count: number }[];
-    maxInventory: number;
-    level: number;
-    exp: number;
-  };
-
-  // 家园数据
+  // 5. 家园数据 (仅在 mode='HOME' 时需要最新数据，但建议常驻)
   home: {
-    buildings: {
-      id: string;
-      type: 'FIELD' | 'WORKBENCH' | 'CONTAINER_OPENER' | 'CANTEEN';
-      pos: { x: number, y: number };
-      level: number;
-      cropType?: string; // 仅 FIELD 有效
-      isReady?: boolean; // 仅 FIELD 有效
-    }[];
+    // 资源存储
     resources: {
       "RESOURCE_WOOD": number,
       "RESOURCE_STONE": number,
       "SEED_WHEAT": number,
       "CROP_WHEAT": number
-      // ... 其他资源类型
     };
+    // 建筑状态
+    buildings: Array<{
+      id: string;
+      type: 'FIELD' | 'WORKBENCH' | 'CONTAINER_OPENER' | 'CANTEEN';
+      pos: { x: number, y: number }; // 这里的 pos 是家园 UI 中的相对位置
+      level: number;
+      // 农田特有字段
+      cropType?: 'CROP_WHEAT'; 
+      plantTime?: number; // 种植时间戳 (用于前端计算进度条)
+      isReady?: boolean;  // 后端确认是否成熟
+    }>;
   };
 
-  // 临时弹窗通知 (前端展示后会自动淡出，后端只需发送一次)
-  popups: {
+  // 6. UI 交互反馈
+  // 聊天与系统日志
+  messages: string[]; 
+  
+  // 弹窗提示 (如 "获得木头 x1")
+  // 后端生成一个 ID，前端展示后会淡出，但依然保留在数组中直到下一次更新清理
+  popups: Array<{
     id: string;
     text: string;
     icon?: string;
     timestamp: number;
-  }[];
+  }>;
 
-  // 伤害飘字 (前端展示后自动淡出)
-  floatingTexts: {
+  // 伤害飘字 (如 "-20")
+  floatingTexts: Array<{
     id: string;
     x: number;
     y: number;
     text: string;
-    colorClass: string; // Tailwind CSS 类名 (如 "text-red-500")
+    colorClass: string; // 例如 "text-red-500"
     timestamp: number;
-  }[];
+  }>;
 }
 ```
 
-### 4. 开发建议
-
-1.  **心跳/Tick**: 后端应维护一个主循环（Tick Loop），建议频率为 20Hz (50ms)。
-2.  **状态同步**: 
-    *   为了简化开发，初期可以在每次 Tick 结束时广播完整的 `STATE_UPDATE` 给所有连接的客户端。
-    *   进阶优化可改为发送 Delta (增量更新)，但这需要修改前端 `RealServer.ts` 的处理逻辑。
-3.  **多玩家同步**: 
-    *   当玩家 A 移动时，更新后端内存中的坐标。
-    *   在下一次广播时，玩家 B 的 `entities` 列表中应包含玩家 A 的最新坐标 (类型为 `OTHER_PLAYER`)。
-4.  **持久化**: 建议将 `player` (背包/属性) 和 `home` (建筑/资源) 数据持久化到数据库。
-
 ---
 
-## 🎨 前端运行指南
+### 4. 后端开发建议 (Best Practices)
 
-1.  **安装依赖**:
-    项目使用 ES Modules 和 CDN 导入 React，无需复杂的 npm install 过程即可预览，但在开发环境下建议使用标准的 React 构建工具。
+1.  **初始连接状态**:
+    当 WebSocket 刚连接时，后端应立即发送一个 `STATE_UPDATE`，其中 `mode` 为 `'AUTH'`，以便前端显示登录界面。
 
-2.  **切换模式**:
-    打开 `src/constants.ts`：
-    *   设置 `export const USE_MOCK_SERVER = true;` 使用纯前端 Mock 模式。
-    *   设置 `export const USE_MOCK_SERVER = false;` 连接真实后端。
+2.  **Tick 循环**:
+    建议后端维护一个 20Hz (50ms) 或 10Hz (100ms) 的主循环。
+    *   处理所有由于 `MOVE` 指令产生的物理位置变更。
+    *   处理怪物 AI (简单的向玩家移动或随机游荡)。
+    *   检查农作物生长定时器。
+    *   **广播状态**: 在 Tick 结束时，将更新后的 `GameState` 推送给相关客户端。
 
-3.  **启动**:
-    直接打开 `index.html` 或使用 Live Server 预览。
+3.  **视野管理 (AOI)**:
+    地图大小为 2000x2000。如果玩家较多，建议只发送玩家视野范围内的 `entities` 和 `decorations`，以减小带宽压力。
+
+4.  **持久化**:
+    *   `player` 数据（等级、经验、背包）和 `home` 数据（资源、建筑等级）需要存入数据库。
+    *   `entities` (怪物) 可以是临时的，随服务器重启重置。
+

@@ -6,7 +6,7 @@ export const USE_MOCK_SERVER = true; // Set to false to connect to real backend
 export const BACKEND_URL = 'ws://localhost:8080/ws'; // Real backend WebSocket URL
 
 // Map Settings
-export const MAP_SIZE = 800; // Pixels
+export const MAP_SIZE = 2000; // Pixels
 export const PLAYER_SIZE = 32;
 export const TICK_RATE = 50; // ms (20 updates/sec)
 export const MOVEMENT_SPEED = 5;

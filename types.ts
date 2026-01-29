@@ -1,5 +1,6 @@
 
 export enum GameMode {
+  AUTH = 'AUTH',
   LOBBY = 'LOBBY',
   WORLD = 'WORLD',
   HOME = 'HOME',
@@ -117,6 +118,12 @@ export interface GameState {
 export interface GameService {
   subscribe(callback: (state: GameState) => void): () => void;
   startGame(): void;
+  
+  // Auth
+  login(username: string, password: string): void;
+  register(username: string, password: string): void;
+
+  // Game Actions
   enterWorld(): void;
   returnHome(): void;
   movePlayer(delta: Position): void;

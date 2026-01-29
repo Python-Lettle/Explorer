@@ -17,9 +17,16 @@ const HomeView: React.FC<HomeViewProps> = ({ home, player }) => {
     <div className="absolute inset-0 bg-emerald-50 overflow-y-auto pb-safe-bottom z-30 touch-auto">
       <div className="pt-20 px-4 pb-32 max-w-md mx-auto min-h-full">
         
-        <header className="mb-6 text-center">
+        <header className="mb-8 text-center flex flex-col items-center">
+          <button
+             onClick={() => server.enterWorld()}
+             className="w-full mb-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-black text-xl shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3 border-2 border-white/20"
+          >
+             <span className="text-2xl">🌍</span>
+             <span>开始探险</span>
+          </button>
+
           <h1 className="text-2xl font-extrabold text-emerald-900">我的家园</h1>
-          <p className="text-emerald-600 text-sm">建造 · 种植 · 生存</p>
         </header>
 
         <div className="space-y-6">

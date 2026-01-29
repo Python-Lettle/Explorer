@@ -40,16 +40,9 @@ const HUD: React.FC<HUDProps> = ({ player, gameMode, popups }) => {
              </div>
         </div>
 
-        {/* Mode Switch Button */}
+        {/* Mode Switch Button - Only show Return Home in World Mode */}
         <div>
-           {gameMode === GameMode.HOME ? (
-             <button 
-               onClick={() => server.enterWorld()}
-               className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2 px-4 rounded-full shadow-lg active:scale-95 transition-all border border-blue-400"
-             >
-               🌍 前往荒野
-             </button>
-           ) : (
+           {gameMode === GameMode.WORLD && (
              <button 
                onClick={() => server.returnHome()}
                className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-4 rounded-full shadow-lg active:scale-95 transition-all border border-emerald-400"

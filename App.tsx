@@ -8,6 +8,7 @@ import HomeView from './components/HomeView';
 import HUD from './components/HUD';
 import VirtualJoystick from './components/VirtualJoystick';
 import ChatWidget from './components/ChatWidget';
+import AuthView from './components/AuthView';
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState | null>(null);
@@ -128,20 +129,36 @@ const App: React.FC = () => {
 
   if (!gameState) return <div className="flex items-center justify-center h-screen bg-slate-900 text-white">正在连接服务器...</div>;
 
+  // AUTH SCREEN
+  if (gameState.mode === GameMode.AUTH) {
+    return <AuthView />;
+  }
+
   // LOBBY SCREEN
   if (gameState.mode === GameMode.LOBBY) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white p-6">
-        <div className="w-full max-w-sm bg-gray-800/80 p-8 rounded-2xl border border-white/10 shadow-2xl text-center backdrop-blur-lg">
-          <h1 className="text-4xl font-extrabold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">EcoExplore</h1>
-          <p className="text-gray-400 mb-8">多人在线冒险 Demo</p>
+      <div className="flex flex-col items-center justify-center h-screen bg-slate-900 text-white p-6 relative overflow-hidden">
+        {/* Decorative Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-emerald-950 to-slate-900 z-0"></div>
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
+
+        <div className="w-full max-w-sm bg-gray-800/80 p-8 rounded-2xl border border-white/10 shadow-2xl text-center backdrop-blur-lg relative z-10 animate-fade-in-up">
+          <div className="text-6xl mb-4">🤠</div>
+          <h1 className="text-4xl font-extrabold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+            {gameState.player.name}
+          </h1>
+          <p className="text-gray-400 mb-8 font-medium bg-black/30 py-1 px-3 rounded-full inline-block">
+             等级 {gameState.player.level} 探险家
+          </p>
           
           <button 
             onClick={() => server.enterWorld()}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl text-lg shadow-lg active:scale-95 transition-transform"
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl text-lg shadow-lg shadow-emerald-900/50 active:scale-95 transition-all mb-4 border-t border-white/20"
           >
             开始冒险
           </button>
+
+          <p className="text-xs text-gray-500 mt-4">Demo 1.1 - Multiplayer Ready</p>
         </div>
       </div>
     );
