@@ -1,8 +1,13 @@
 
 import React, { useState } from 'react';
 import { server } from '../services';
+import { Popup } from '../types';
 
-const AuthView: React.FC = () => {
+interface AuthViewProps {
+  popups?: Popup[];
+}
+
+const AuthView: React.FC<AuthViewProps> = ({ popups = [] }) => {
   const [isRegister, setIsRegister] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -24,6 +29,16 @@ const AuthView: React.FC = () => {
        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-900/40 via-slate-900 to-black z-0"></div>
        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse"></div>
        <div className="absolute top-40 -left-20 w-72 h-72 bg-emerald-500/20 rounded-full blur-3xl animate-pulse delay-700"></div>
+
+       {/* Popups Layer */}
+       <div className="absolute top-10 left-0 right-0 flex flex-col items-center gap-2 z-50 pointer-events-none">
+          {popups.map((p) => (
+              <div key={p.id} className="bg-white/10 backdrop-blur-md border border-white/20 text-white px-4 py-2 rounded-full flex items-center gap-2 shadow-xl animate-fade-in-up">
+                  {p.icon && <span className="text-lg">{p.icon}</span>}
+                  <span className="font-medium text-sm">{p.text}</span>
+              </div>
+          ))}
+       </div>
 
        <div className="w-full max-w-sm bg-gray-800/60 backdrop-blur-xl p-8 rounded-2xl border border-white/10 shadow-2xl relative z-10 animate-bounce-in">
           <div className="text-center mb-8">

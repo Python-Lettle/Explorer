@@ -131,7 +131,7 @@ const App: React.FC = () => {
 
   // AUTH SCREEN
   if (gameState.mode === GameMode.AUTH) {
-    return <AuthView />;
+    return <AuthView popups={gameState.popups} />;
   }
 
   // LOBBY SCREEN
